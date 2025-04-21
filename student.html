@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Student Enrollment Form</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+    <script src="https://login2explore.com/jpdb/resources/js/0.0.3/jpdb-commons.js"></script>
+    <style>
+        .required-field::after {
+            content: " *";
+            color: red;
+        }
+        .form-control:disabled {
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Student Enrollment Form</h2>
+        <form id="studentForm">
+            <div class="form-group">
+                <span><label for="rollNo" class="required-field">Roll No:</label> <label id="rollNoMsg"></label></span>
+                <input type="text" class="form-control" name="rollNo" id="rollNo" 
+                       placeholder="Enter Student Roll Number" required>
+            </div>
+            <div class="form-group">
+                <label for="fullName" class="required-field">Full Name:</label>
+                <input type="text" class="form-control" id="fullName" disabled
+                       placeholder="Enter Student Full Name" name="fullName" required>
+            </div>
+            <div class="form-group">
+                <label for="className" class="required-field">Class:</label>
+                <input type="text" class="form-control" id="className" disabled
+                       placeholder="Enter Class (e.g., 10A)" name="className" required>
+            </div>
+            <div class="form-group">
+                <label for="birthDate" class="required-field">Birth Date:</label>
+                <input type="date" class="form-control" id="birthDate" disabled
+                       name="birthDate" required>
+            </div>
+            <div class="form-group">
+                <label for="address" class="required-field">Address:</label>
+                <textarea class="form-control" id="address" disabled
+                          placeholder="Enter Student Address" name="address" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="enrollmentDate" class="required-field">Enrollment Date:</label>
+                <input type="date" class="form-control" id="enrollmentDate" disabled
+                       name="enrollmentDate" required>
+            </div>
+            <div class="form-group">
+                <label for="parentName">Parent/Guardian Name:</label>
+                <input type="text" class="form-control" id="parentName" disabled
+                       placeholder="Enter Parent/Guardian Name" name="parentName">
+            </div>
+            <div class="form-group">
+                <label for="contactNumber">Contact Number:</label>
+                <input type="tel" class="form-control" id="contactNumber" disabled
+                       placeholder="Enter Contact Number" name="contactNumber">
+            </div>
+            
+            <div class="form-group">
+                <input type="button" class="btn btn-primary" id="saveBtn" value="Save" disabled onclick="saveStudent();">
+                <input type="button" class="btn btn-warning" id="updateBtn" value="Update" disabled onclick="updateStudent();">
+                <input type="button" class="btn btn-danger" id="resetBtn" value="Reset" disabled onclick="resetForm();">
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // Database configuration
+        const dbName = "SCHOOL-DB";
+        const relationName = "STUDENT-TABLE";
+        const connToken = "90934772|-31949209024530825|90956015"; 
+        
+        $(document).ready(function() {
+            $("#rollNo").focus();
+            $("#rollNo").on("blur", checkRollNo);
+        });
+        
+        function checkRollNo() {
+            const rollNo = $("#rollNo").val().trim();
+            if (rollNo === "") {
+                return;
+            }
+            
+            // Create GET request to check if student exists
+            const getReqStr = createGET_BY_KEYRequest(connToken, dbName, relationName, rollNo);
+            
+            jQuery.ajaxSetup({async: false});
+            const resultObj = executeCommandAtGivenBaseUrl(getReqStr, "http://api.login2explore.com:5577", "/api/irl");
+            jQuery.ajaxSetup({async: true});
+            
+            if (resultObj.status === 400) {
+                // Student doesn't exist - enable form for new entry
+                enableFormForNewEntry();
+            } else if (resultObj.status === 200) {
+                // Student exists - populate form for update
+                const studentData = resultObj.data;
+                populateFormForUpdate(studentData);
+            }
+        }
+        
+        function enableFormForNewEntry() {
+            // Enable all fields except rollNo (primary key)
+            $("#fullName, #className, #birthDate, #address, #enrollmentDate, #parentName, #contactNumber").prop("disabled", false);
+            
+            // Enable Save and Reset buttons
+            $("#saveBtn, #resetBtn").prop("disabled", false);
+            
+            // Disable Update button
+            $("#updateBtn").prop("disabled", true);
+            
+            // Move focus to next field
+            $("#fullName").focus();
+        }
+        
+        function populateFormForUpdate(studentData) {
+            // Fill form with existing data
+            $("#fullName").val(studentData.fullName);
+            $("#className").val(studentData.className);
+            $("#birthDate").val(studentData.birthDate);
+            $("#address").val(studentData.address);
+            $("#enrollmentDate").val(studentData.enrollmentDate);
+            $("#parentName").val(studentData.parentName || "");
+            $("#contactNumber").val(studentData.contactNumber || "");
+            
+            // Enable all fields except rollNo (primary key)
+            $("#fullName, #className, #birthDate, #address, #enrollmentDate, #parentName, #contactNumber").prop("disabled", false);
+            $("#rollNo").prop("disabled", true);
+            
+            // Enable Update and Reset buttons
+            $("#updateBtn, #resetBtn").prop("disabled", false);
+            
+            // Disable Save button
+            $("#saveBtn").prop("disabled", true);
+            
+            // Move focus to next field
+            $("#fullName").focus();
+        }
+        
+        function validateAndGetFormData() {
+            const rollNo = $("#rollNo").val().trim();
+            if (rollNo === "") {
+                alert("Roll Number is required");
+                $("#rollNo").focus();
+                return "";
+            }
+            
+            const fullName = $("#fullName").val().trim();
+            if (fullName === "") {
+                alert("Full Name is required");
+                $("#fullName").focus();
+                return "";
+            }
+            
+            const className = $("#className").val().trim();
+            if (className === "") {
+                alert("Class is required");
+                $("#className").focus();
+                return "";
+            }
+            
+            const birthDate = $("#birthDate").val();
+            if (birthDate === "") {
+                alert("Birth Date is required");
+                $("#birthDate").focus();
+                return "";
+            }
+            
+            const address = $("#address").val().trim();
+            if (address === "") {
+                alert("Address is required");
+                $("#address").focus();
+                return "";
+            }
+            
+            const enrollmentDate = $("#enrollmentDate").val();
+            if (enrollmentDate === "") {
+                alert("Enrollment Date is required");
+                $("#enrollmentDate").focus();
+                return "";
+            }
+            
+            const jsonStrObj = {
+                rollNo: rollNo,
+                fullName: fullName,
+                className: className,
+                birthDate: birthDate,
+                address: address,
+                enrollmentDate: enrollmentDate,
+                parentName: $("#parentName").val().trim(),
+                contactNumber: $("#contactNumber").val().trim()
+            };
+            
+            return JSON.stringify(jsonStrObj);
+        }
+        
+        function saveStudent() {
+            const jsonStr = validateAndGetFormData();
+            if (jsonStr === "") {
+                return;
+            }
+            
+            // Create PUT request to save new student
+            const putReqStr = createPUTRequest(connToken, jsonStr, dbName, relationName);
+            
+            jQuery.ajaxSetup({async: false});
+            const resultObj = executeCommandAtGivenBaseUrl(putReqStr, "http://api.login2explore.com:5577", "/api/iml");
+            jQuery.ajaxSetup({async: true});
+            
+            if (resultObj.status === 200 || resultObj.status === 201) {
+                alert("Student record saved successfully!");
+                resetForm();
+            } else {
+                alert("Error saving student: " + JSON.stringify(resultObj));
+            }
+        }
+        
+        function updateStudent() {
+            const jsonStr = validateAndGetFormData();
+            if (jsonStr === "") {
+                return;
+            }
+            
+            // Create UPDATE request to modify existing student
+            const updateReqStr = createUPDATERecordRequest(connToken, dbName, relationName, 
+                $("#rollNo").val().trim(), jsonStr);
+            
+            jQuery.ajaxSetup({async: false});
+            const resultObj = executeCommandAtGivenBaseUrl(updateReqStr, "http://api.login2explore.com:5577", "/api/iml");
+            jQuery.ajaxSetup({async: true});
+            
+            if (resultObj.status === 200) {
+                alert("Student record updated successfully!");
+                resetForm();
+            } else {
+                alert("Error updating student: " + JSON.stringify(resultObj));
+            }
+        }
+        
+        function resetForm() {
+            // Reset all fields
+            $("#studentForm")[0].reset();
+            
+            // Disable all fields except rollNo
+            $("input, textarea").not("#rollNo").prop("disabled", true);
+            
+            // Disable all buttons
+            $("#saveBtn, #updateBtn, #resetBtn").prop("disabled", true);
+            
+            // Enable rollNo field if it was disabled
+            $("#rollNo").prop("disabled", false);
+            
+            // Set focus back to rollNo
+            $("#rollNo").focus();
+        }
+    </script>
+</body>
+</html>
